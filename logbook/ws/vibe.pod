@@ -1,0 +1,23 @@
+=encoding utf8
+
+Wed Nov 26 19:21:08 CST 2025
+
+试了试 vibe coding，最近很火好像。
+
+先试了 openai 的 codex，发现它的 shell 不是个 posix shell，转义啥的没法用。
+
+试试 roo code 好了。
+
+Fri Nov 28 21:23:15 CST 2025
+
+deepseek r1 的指令跟随完全是一坨狗屎，我在无数个地方让它不要用 markdown 格式输出，完全没用。
+
+deepseek v3.1 好一些……
+
+Tue Dec  9 18:49:33 CST 2025
+
+傻逼 deepseek v3.2，代码编译都编译不过就告诉我任务完成。完成你妈。
+
+哎，minimax m2 好一点，但是也不太行。
+
+感觉这种适合写那种小小的代码，开发一整个大项目什么的还是不行。

@@ -1,0 +1,5 @@
+=encoding utf8
+
+Fri Oct 31 20:13:08 CST 2025
+
+如果能让 rust 在 newlib 上面跑的话，就能方便地支持更多的系统。

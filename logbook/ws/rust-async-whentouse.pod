@@ -1,0 +1,57 @@
+=encoding utf8
+
+Fri Oct 17 15:14:10 CST 2025
+
+=head1 When to use async rust
+
+调研什么时候应该使用 async rust，什么时候不应该用。
+
+L<https://github.com/jimblandy/context-switch>
+
+    A context switch takes around 0.2µs between async tasks, versus 1.7µs between kernel threads. But this advantage goes away if the context switch is due to I/O readiness: both converge to 1.7µs. The async advantage also goes away in our microbenchmark if the program is pinned to a single core. So inter-core communication is something to watch out for.
+
+    Creating a new task takes ~0.3µs for an async task, versus ~17µs for a new kernel thread.
+
+异步任务的创建和切换的时间在 200 到 300 纳秒左右。
+
+异步用来做 IO 密集型，线程用来做计算密集型。
+
+把 rayon 和 tokio 连起来？在 tokio 里 spawn blocking 之后调用 rayon 似乎是好主意。
+
+L<https://medium.com/@the_atomic_architect/we-deleted-tokio-from-our-payment-system-and-cut-cloud-costs-by-127-000-b745a86f973b>
+
+这篇说从异步切换到同步之后，性能提升了。但是但是
+
+    We had a cascade failure. One database query took longer than expected. That blocked an async task. Which held up the executor. Which caused other tasks to queue. Within minutes, the whole service was timing out.
+
+感觉是作者不会写异步造成的……
+
+L<https://www.reddit.com/r/rust/comments/1ax5038/what_is_the_performance_cost_of_running_rust/>
+
+在讨论 Rust 的异步的开销。感觉没啥帮助。
+
+L<https://corrode.dev/blog/async/>:
+
+    Keep your domain logic synchronous and only use async for I/O and external services. Following these guidelines will make your code more composable and accessible. On top of that, the error messages of sync Rust are much easier to reason about than those of async Rust.
+
+有道理的。但是我的 domain logic 如果需要调用外部的 API 该怎么办呢？
+
+L<https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/>
+
+我去，这篇文章讲的就是我遇到的问题。还讲了为啥有栈协程不会遇到这个问题。
+
+但是他给出的解决方案是不要用 async，或者用有栈的，感觉还是有点野蛮。
+
+Sat Nov 15 03:46:17 PM CST 2025
+
+L<https://fmoya.dev/posts/async-rust/>
+
+    In summary, use async Rust when you need to manage many concurrent I/O-bound operations efficiently, particularly in network-heavy applications or constrained environments. Avoid it when working with CPU-heavy tasks, simple applications, or workloads where threading already provides an effective solution.
+
+说是对于小的程序来说，线程模型已经足够好，用 async 是一种过度优化了。
+
+坏，现在 rust 的 web 框架已经全是 async 的了。
+
+L<https://maciej.codes/2022-06-09-local-async.html>
+
+    If you write regular synchronous Rust code, unless you have a really good reason, you don't just start with a thread-pool. You write single-threaded code until you find a place where threads can help you, and then you parallelize it, which can be as simple as replacing iter with par_iter using Rayon.

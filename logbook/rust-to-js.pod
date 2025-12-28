@@ -1,0 +1,175 @@
+=encoding utf8
+
+Fri Nov 21 13:56:30 CST 2025
+
+Hamster 新做了个看起来很好玩的游戏，用 js 操控机器人种地。玩一下。
+
+    每个玩家独享一个 javascript 运行时（不是 v8，不支持 generator 但是支持 promise 和 async/await）。每个时间刻会调用玩家代码里的 function tick() 函数。然后玩家在 tick 函数里就可以实现自己的游玩逻辑了
+
+    但是这样如果有多步规划，就会要求玩家在两次调用 tick 之间手动维护状态。这就变成了古法的手搓状态机了，非常野蛮。我非常天才地（really！）想到 Generator 天生就是一个状态机，如果我能把自己的逻辑装在一个 Generator 里面，tick 函数直接调用 Generator 的 next 方法，然后每次行动完 yield 一下，就能让 Generator 来帮自己维护烦人的 state 了！
+
+    但是运行时不支持 generator。我回退一步想到 promise 也是状态机，使用 promise 的话我需要在 tick 函数里 poll 一个 promise。然后我现在就在这里了
+
+昨天写的时候发现的。
+
+今天想了想，rust 有一个 asmjs 的 target，没准可以把 rust 编译到 asmjs 然后交上去。
+
+一看发现 asmjs 已经不见了。
+
+现在就只能把 rust 编译到 wasm 然后再编译到 js 来玩了……
+
+L<https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Rust_to_Wasm>
+
+参考这篇文档，先安装 C<wasm-pack> 和 C<wasm-opt>。然后改改 Cargo.toml，就可以用 C<wasm-pack build --release --target no-modules> 编译了。它的 C<target> 有好几个取值，但是我不知道哪个是最好的。先随便选了个顺眼的用着。
+
+    Fatal: error validating input
+    Error: failed to execute `wasm-opt`: exited with exit status: 1
+    full command: "/home/jyi/.cargo/bin/wasm-opt" "/home/jyi/dev/hamfarm-sdk/pkg/hamfarm_sdk_bg.wasm" "-o" "/home/jyi/dev/hamfarm-sdk/pkg/hamfarm_sdk_bg.wasm-opt.wasm" "-O"
+    To disable `wasm-opt`, add `wasm-opt = false` to your package metadata in your `Cargo.toml`.
+    Caused by: failed to execute `wasm-opt`: exited with exit status: 1
+    full command: "/home/jyi/.cargo/bin/wasm-opt" "/home/jyi/dev/hamfarm-sdk/pkg/hamfarm_sdk_bg.wasm" "-o" "/home/jyi/dev/hamfarm-sdk/pkg/hamfarm_sdk_bg.wasm-opt.wasm" "-O"
+    To disable `wasm-opt`, add `wasm-opt = false` to your package metadata in your `Cargo.toml`.
+
+报错了
+
+L<https://github.com/garden-co/jazz-crypto-rs/pull/20>
+
+L<https://doc.rust-lang.org/rustc/platform-support/wasm32-unknown-unknown.html#enabled-webassembly-features>
+
+看来是 rust 生成 wasm 时用到了 bulk memory 的特性，但是 wasm-opt 默认没有启用导致的。解决方法可以是修改 wasm-opt 的参数，也可以是修改编译参数。考虑到后面的 wasm2js 也需要手工开启 bulk memory，还是想办法改改编译参数吧……
+
+    0 cat .cargo/config.toml
+    [target.wasm32-unknown-unknown]
+    rustflags = [ '-Ctarget-cpu=mvp' ]
+
+done
+
+下一步是使用 binaryen 的 wasm2js 来把 wasm 转换成 js
+
+    0 head -3 hamfarm_sdk.js
+    import * as wbg from 'wbg';
+
+    var bufferView;
+
+它怎么引用了一个 wbg 的包，哪来的，感觉有点野蛮。
+
+哦，wbg 是它的配套 bindgen js 文件里提供的。我要想办法把这个 js 和生成的 js 粘起来。
+
+    use Text::Balanced qw/extract_bracketed/;
+
+    my $glue = do {
+        open my $fh, '<:utf8', 'pkg/hamfarm_sdk.js';
+        local $/ = undef;
+        scalar <$fh>;
+    };
+
+    my ($body_and_res) = $glue =~ /\Qfunction\E\s+\Q__wbg_get_imports()\E\s+(.*)/s;
+    my ($body) = extract_bracketed( $body_and_res, '{}' );
+    print <<EOF;
+    let wbg = (function () $body)().wbg;
+    EOF
+
+    my $sdk = do {
+        open my $fh, '<:utf8', 'pkg/hamfarm_sdk_bg.js';
+        local $/ = undef;
+        scalar <$fh>;
+    };
+
+    $sdk =~ s/^import.*$//gm;
+    $sdk =~ s/^export //gm;
+
+    print $sdk;
+
+好吧，有点野蛮。但是它能用。
+
+    0 node pkg/hamster.js
+    file:///home/jyi/dev/hamfarm-sdk/pkg/hamster.js:886
+        fimport$0(HEAP32[$2_1 + 20 >> 2], $3_1 | 0);
+        ^
+
+    TypeError: fimport$0 is not a function
+        at $4 (file:///home/jyi/dev/hamfarm-sdk/pkg/hamster.js:886:8)
+        at file:///home/jyi/dev/hamfarm-sdk/pkg/hamster.js:2165:1
+        at ModuleJob.run (node:internal/modules/esm/module_job:263:25)
+        at async ModuleLoader.import (node:internal/modules/esm/loader:540:24)
+        at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+    Node.js v20.19.2
+
+坏，翻车了。
+
+哦，原来是忘记 make 导致的。
+
+吼吼，还可以用 babel 把 es6 给转换到 es5，专门给杂鱼 js rt 使用。好玩
+
+有个 google-colsure-compiler，可以把 js 给进一步压缩。看一下。
+
+哎原来 rust 在 wasm 里还自带了一个内存分配器，我说怎么 C<String::new()> 一跑就提示我代码语句数量超限……
+
+看来不能堆分配。或者得搞个好点的 allocator。
+
+L<https://nickb.dev/blog/avoiding-allocations-in-rust-to-shrink-wasm-modules/>
+
+给了几个可用的 allocator 出来。
+
+先试试换 alloacator，没有的话就写 no_std 好了。
+
+L<https://github.com/sfbdragon/talc>
+
+决定试试这个，最近更新。虽然也是 5 个月之前了。
+
+        imports.wbg.__wbg_print_9f06068266e44f9b = function(arg0, arg1) {
+            let deferred0_0;
+            let deferred0_1;
+            try {
+                deferred0_0 = arg0;
+                deferred0_1 = arg1;
+                print(getStringFromWasm0(arg0, arg1));
+            } finally {
+                wasm.__wbindgen_export(deferred0_0, deferred0_1, 1);
+            }
+        };
+
+talc 在 wasm 下似乎会生成对 wasm 的调用。然而我们最终要把它转换成 js，而不是在 wasm 环境里直接执行。在执行的时候是没有 wasm 这个模块的。所以似乎最好找个 arena 的内存分配器……不要对 wasm 特化的。
+
+L<https://github.com/Craig-Macomber/lol_alloc>
+
+试试这个好了。哦，这个好像也是对 wasm 特化的……
+
+哦不对！这个 export 是由于把一个堆分配带所有权的东西传给了 js 导致的，不是 allocator 的问题！
+
+改了一下，好像也不对。它把 C<&str> 传出去的时候需要用到辅助函数来做解码……叫 C<getStringFromWasm0>。用途是把 wasm 的内存解码成字符串。
+
+我感觉我得重新设计一下胶水。
+
+哦，或者其实也不用设计。我把这俩函数拷过去就行了。又不是不能用。
+
+L<https://github.com/wasm-bindgen/wasm-bindgen>
+
+看了下这个，这些函数似乎是动态生成的。共享一个前缀，后面的 0 会变。
+
+哎，挠头了。
+
+想了想还是去改一下 sdk 和胶水的顺序好了。
+
+sdk 会初始化出来一个 retasmFunc，它和 wasm 模块的成员基本一样。胶水会依赖 wasm 模块。
+
+但是初始化 sdk 的时候会需要 wbg，而这个 wbg 是由胶水产出的。
+
+坏了，循环依赖了。
+
+哎，费了半天劲，搞各种引用魔法，终于让它能够工作了。
+
+但是交上去之后提示我不支持 TexeDecoder。有点幽默了。
+
+写了个简单的 TextEncoder 和 TextDecoder。现在一切都正常了。太好力。
+
+我想了下能不能直接用 LeakingPageAllocator，它只申请不释放内存。后来想想感觉不行，虽然 js 有 gc 但是这个 allocator 申请东西直接把一个 u8 数组当内存用的，该漏的还是会漏。
+
+努力了一番，把异步给调好了，大成功！
+
+但是用异步的时候会超最大指令数，所以还是得另想办法
+
+用 generator 好了。
+
+嘻嘻，generator 是好的。它可以跑起来。

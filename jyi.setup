@@ -41,9 +41,6 @@ rcs: git
 # plugins to add to the default configuration
 add_plugins:
 - goodstuff
-- websetup
-- comments
-- blogspam
 - calendar
 - sidebar
 - trail
@@ -58,7 +55,7 @@ underlaydir: /usr/share/ikiwiki/basewiki
 # log to syslog?
 syslog: 1
 # create output files named page/index.html?
-usedirs: 1
+usedirs: 0
 # use '!'-prefixed preprocessor directives?
 prefix_directives: 1
 # use page/index.mdwn source files
@@ -272,7 +269,7 @@ locked_pages: '* and !postcomment(*)'
 
 # comments plugin
 # PageSpec of pages where comments are allowed
-comments_pagespec: posts/* and !*/Discussion
+# comments_pagespec: posts/* and !*/Discussion
 # PageSpec of pages where posting new comments is not allowed
 #comments_closed_pagespec: blog/controversial or blog/flamewar
 # Base name for comments, e.g. "comment_" for pages like "sandbox/comment_12"
@@ -340,7 +337,7 @@ archive_pagespec: page(posts/*) and !*/Discussion
 
 # img plugin
 # Image formats to process (jpeg, png, gif, svg, pdf or 'everything' to accept all)
-#img_allowed_formats: ''
+img_allowed_formats: 'everything'
 
 # listdirectives plugin
 # directory in srcdir that contains directive descriptions

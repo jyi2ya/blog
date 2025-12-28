@@ -1,0 +1,17 @@
+=encoding utf8
+
+Sat Nov 15 14:53:40 CST 2025
+
+使用 pkgsrc 在超算队集群上装软件。
+
+装 tmux，发现 perl 报错：
+
+    invalid application of 'sizeof' to incomplete type 'struct pollfd'
+
+L<https://serverfault.com/questions/145288/make-error-when-compiling-perl-5-12-1-rhel-5-5>
+
+    I discovered that perl comes with a local poll.h that attempts to emulate the functionality of poll() if you don't have the right headers; this is located at /dist/IO/poll.h (root is located at the root of the tarball). Since RHEL 5.5 has poll.h, /Configure had detected its presence and set itself to use the system poll.h rather than its own. The following diff on /dist/IO/poll.h got it to work:
+
+不知道是谁的问题。神奇……把 poll.h 改成 sys/poll.h 就好了。手动操作，并不是很可复现的构建。
+
+为什么装 tmux 会依赖 perl 呢，挠头。

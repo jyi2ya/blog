@@ -1,0 +1,25 @@
+=encoding utf8
+
+Sun Oct 12 14:13:09 CST 2025
+
+Tue Nov 11 17:55:45 CST 2025
+
+L<http://perlcode.org/tutorials/perl/testing_readable.pdf>
+
+    You will always be afraid of touching a finished, working piece of code until you have tests
+
+说明测试有利于重构。
+
+Fri Nov 14 15:52:18 CST 2025
+
+L<https://www.modernperlbooks.com/mt/2011/05/decoupling-testability-and-synthetic-attributes>
+
+    avoid hard-coding dependencies in your code.
+
+L<https://stackoverflow.com/questions/37144880/refactor-perl-sub-for-testability>
+
+演示如何通过符号表魔法来实现对特定函数的 mock。
+
+L<https://jacobfilipp.com/DrDobbs/articles/DDJ/1997/9706/9706d/9706d.htm>
+
+古代文章了……

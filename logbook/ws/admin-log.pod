@@ -1,0 +1,34 @@
+=encoding utf8
+
+Wed Nov 26 20:43:31 CST 2025
+
+今天 rivus 爆炸了，叫老爹帮忙重启了一下。怀疑是内存满了导致的。
+
+我看了下配置，物理机 8 GB 内存，lxc 开了 16 GB 出来。改成 6 GB 内存 + 8 GB swap 了。
+
+重启之后：napcat 没问题
+
+memos 有点问题，看来是数据库没及时初始化导致的。
+
+yarr 竟然是好的。不过现在有围墙花园了似乎也用不上它了。就不管了。它能活就活着，不活也不管我的事……
+
+    !! LOOPLINE !!
+
+    NEW ONLINE:
+    1 deadhead
+    2 roundhouse
+    3 rivus-sweethome
+
+    NEW OFFLINE:
+    1 deadhead
+    2 rivus-sweethome
+    3 roundhouse
+    4 safehouse
+
+    #ONLINE: 20
+
+好耶，都上线了。
+
+哦不对。小笔记本没上线。
+
+算了不管了，反正暂时用不到它。

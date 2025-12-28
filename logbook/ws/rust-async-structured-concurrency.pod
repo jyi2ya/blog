@@ -1,0 +1,170 @@
+=encoding utf8
+
+Sat Nov 15 07:33:49 PM CST 2025
+
+L<https://emschwartz.me/async-rust-can-be-a-pleasure-to-work-with-without-send-sync-static/>
+
+在异步里面用结构化并发吗，感觉有点有趣。
+
+    Structured concurrency is a property of your program. It's not just any structure, the structure of the program is guaranteed to be a tree regardless of how much concurrency is going on internally. A good way to think about it is that if you could plot the live call-graph of your program as a series of relationships it would neatly form a tree. No cycles. No dangling nodes. Just a single tree.
+
+结构化并发中，各项依赖形成了树形结构。
+
+我去，这个想法挺不错的，结构化并发可以允许 spawn 的 Future 不 Sync 和 Send。
+
+tokio 的 LocalSet 似乎可以用来实现这个功能，虽然没试过。
+
+结构化并发是对的嘻嘻。
+
+那为什么 tokio 要把 LocalSet 给 deprecate 掉呢。
+
+L<https://github.com/tokio-rs/tokio/issues/6741>
+
+    I believe that all existing uses of LocalSet can be replaced either by the new LocalRuntime or by FuturesUnordered. The advantage of this approach is that the current design of LocalSet make it impossible to add some features without having them be really confusing:
+
+FuturesUnordered 的 push 方法似乎就等于 LocalSet 的 spawn 方法。
+
+有说法的这个。用 FuturesUnordered 来实现结构化并发，我之前怎么没想过。
+
+哎，使用 scoped thread 的经验没有正确地迁移到 Future 上面。一旦接受了 Future 也能结构化并发的事实，拿一个数组把所有 Future 装起来然后 join all 就有了实际的意义，不是看起来那么抽象的东西了。Future 可以直接把返回值写到某处而不必借助 join all 的返回值，后者还得一个一个对着 Future 的顺序提取结果……
+
+L<https://without.boats/blog/let-futures-be-futures/>
+
+    All tasks are futures, but not all futures are tasks. Futures become tasks when they are passed to an executor to execute. Most often, a task will be composed of many smaller futures combined together: when you await a future inside of an async scope, the state of the awaited future is combined directly into the future that the async scope evaluates to.
+
+有道理哦，被 spawn 的 Future 和由 await 组合级联出来的 Future 确实不该一概而论。
+
+    I want to introduce a distinction between two kinds of concurrency that can be achieved with the task model: multi-task concurrency, in which concurrent operations are represented as separate tasks, and intra-task concurrency, in which a single task performs multiple operations concurrently.
+
+Task 对应 thread，Future 对应 scoped thread。有道理的
+
+    I would be remiss if I didn’t mention one feature that’s been under discussion within the Rust project which I think runs completely counter to my line of thinking here: the idea of maybe(async). This is a feature (syntax to be determined) for writing code which is abstract over whether or not it is async. In other words, any maybe(async) function could be instantiated to two variants: one in which it is async (and awaits all futures within it) and one in which it is not async (and presumably those functions which return futures in the async version would instead block).
+
+好像看过，nullderef 有篇文章就讲如何同时维护 async 和 sync 的 api 的。等调查完了去看看。
+
+    The biggest problem with this idea is that it could only work for multi-task concurrency.
+
+不对，可以用 scoped thread 模拟。
+
+但是如果是 scoped thread 的话虽然对 lifetime 没要求了，对 send 和 sync 又有要求了。所以看起来还是不太行。
+
+    What unites these two discussions is the fact that the difference between async functions and blocking functions is the additional affordance of the Future trait. This is what allows an asynchronous task to perform multiple operations concurrently, whereas a thread cannot.
+
+哎，goroutine 也没法弄这个。它默认就是 spawn 了。不太文明。
+
+    A “pure” function would be a function that yields Never (meaning it doesn’t actually yield at all), whereas an “impure” function would be a function that yields Pending (or some other magic type from your runtime meaning you’re waiting on an external event).
+
+纯函数等于不 yield 的函数，有点好玩。
+
+    this runtime model is incompatible with stackful coroutines, so Rust needed to introduce a stackless coroutine mechanism instead.
+
+Rust 需要用 C 的栈模型，来支持零开销的 FFI。但是这种模型和有栈协程不兼容，所以 rust 只能用无栈协程。
+
+Sun Nov 16 12:21:59 PM CST 2025
+
+我在思考到底是应该用 C<futuresunordered.push(async {})> 还是用 C<futuresunordered.push(tokio::spawn(async {}))>。两个都能实现结构化并发的语义，后者似乎还更有利于负载均衡……
+
+哦不对，后者是错的。由于 tokio 的 JoinHandle 在 drop 的时候不会停止任务，futuresunordered 在 drop 之后它里面的任务还是会继续执行，也就是说后者无法整个取消。这是坏的。
+
+Mon Nov 17 11:09:57 AM CST 2025
+
+FuturesUnordered 有三个方法，C<Future> 的 C<push>、C<Future + 'static> 的 C<spawn_local> 和 C<Future + Send + 'static> 的 C<spawn>。它可以处理不 static 的 Future，也就是说 Future 内部可以持有外部的引用。
+
+感觉有点问题，LocalSet 和 FuturesUnordered 好像也并非等价的。FuturesUnordered 在内部 Future 是 C<!Send> 的时候自己也是 C<!Send> 的来着。也就是说它还是不能在 C<tokio::spawn> 里面用。因为它的 C<!Send> 会传染给它的所有上级 Future，最后导致最上层的 Future 无法用作 C<tokio::spawn> 的参数。
+
+L<https://docs.rs/tokio/latest/tokio/task/struct.LocalSet.html#awaiting-a-localset>
+
+    Note: Awaiting a LocalSet can only be done inside #[tokio::main], #[tokio::test] or directly inside a call to Runtime::block_on. It cannot be used inside a task spawned with tokio::spawn.
+
+哦，原来 localset 也不行。哈哈
+
+这么看 tokio 的各个线程也并不是对等的。调用 C<block_on> 的那个线程明显拥有更多的功能。叫它主线程好了。
+
+太坏了，为什么 tokio 默认要 Future 是 Send 的。
+
+是不是外层用 dispatcher，每个线程有一个 local executor，然后 Task 都用 FuturesUnordered 而不是 spawn 会比较好。
+
+L<https://docs.rs/tokio/latest/tokio/task/struct.LocalSet.html#awaiting-a-localset>
+
+如果想在 C<tokio::spawn> 的 Future 中使用 LocalSet 则需要用类似 actor 的方式将 Future 调用变成消息传递，然后走 channel。
+
+那就有另一个问题了！什么时候应当使用 C<join!()>，C<futuresunordered.add(async {})>，C<futuresunordered.add(tokio::spawn(async {})> 和 C<tokio::spawn(async {})> 呢。
+
+C<futuresunordered.add(tokio::spawn(async {}))> 允许用比较结构化并发的方式来处理任务，还允许任务跨线程移动，似乎比较适合 CPU 密集型任务？但是它的取消是有问题的所以也不是很好。而且通常异步任务也不应该是 CPU 密集型的啊……
+
+需要研究是否应该尽量少用 C<tokio::spawn>。
+
+如果不关心事物的返回值，可以用 tokio::spawn？但是任何东西都可以改成不关心返回值的，只要用可变引用给外部赋值就好了。
+
+哦，可能是单独表达一个无须等待的意思。Task 之间是不是本来就不应该互相有等待关系的。就是说 spawn 之后的 task 就自生自灭好了，不需要再关心它的状态。
+
+那好像懂了，大概就是不要 await 一个 tokio Task 并获取它的返回值。如果需要返回值，就使用 FuturesUnordered
+
+所以不要使用 C<futuresunordered.add(tokio::spawn(async {}))>
+
+倒是可以用 futuresunordered 来模拟 tokio::spawn。不过似乎没啥意义。
+
+tokio::spawn 的使用是不是应该限制在并发任务的最顶层呢？就和 thread per core 架构的 dispatch 一样。
+
+L<https://tmandry.gitlab.io/blog/posts/2023-03-01-scoped-tasks/>
+
+    Combined, these constraints mean that we cannot guarantee any code in an async context runs before some set of values go out of scope.
+
+hmm 确实，所以抄 thread::scope 抄不出来。
+
+    Relaxing Parallelism: FuturesUnordered, select, moro::async_scope!.
+
+为什么 FuturesUnordered 会被称为 relax parallism。它是在区别 parallel 和 concurrency 吗。
+
+    Parallelism: We want the subtasks we spawn to fan out to other threads.
+
+哦，还真是。但是我感觉这个不是很重要……至少我暂时还没碰到过需要异步同时又是计算密集型的东西。
+
+    They exploit the fact that upward control flow through a call frame is observable; that is, that if you write a function you can always “notice” that it is returning or unwinding. Async removes this property through the confluence of the above constraints. Another way of looking at it is that async introduces a new direction for control flow to take. From the perpsective of an async context, control flow doesn’t travel “up” or “down” the call stack, but “out” of it completely.
+
+确实（
+
+L<https://without.boats/blog/the-scoped-task-trilemma/>
+
+L<https://without.boats/blog/futures-unordered/>
+
+    This makes it a lot like tokio’s JoinSet in surface appearance, but unlike JoinSet the futures you push into it are not spawned separately onto the executor, but are polled as the FuturesUnordered is polled.
+
+JoinSet 和 FuturesUnordered 的区别。JoinSet 里面的东西会被 spawn 出去。那感觉 JoinSet 是不是有点像 C<FuturesUnordered.push(tokio::spawn(async {}))>;
+
+    Much like spawning a task, every future pushed into FuturesUnordered is separately allocated, so representationally its very similar to multi-task concurrency.
+
+FuturesUnordered 会有内存分配，join 宏就不会有。
+
+L<https://emschwartz.me/async-rust-can-be-a-pleasure-to-work-with-without-send-sync-static/>
+
+如何写 C<!Send> 的 async rust。
+
+    Most types automatically implement Send except references, Rcs, and any value that contains one of these.
+
+引用是 C<!Send> 的。
+
+可恶，吹着吹着又吹到 thread per core 来了。
+
+    Websockets or other long-lived connections might be a different story, though, because you don't know how long a connection will last when it is initially received.
+
+还真是！之前在想问题的时候都忽略了这种需要长时间运行的 Future。如果这种 Future 多的话那 work stealing 是很有优势的。
+
+    So, if you're willing to write your async code directly on top of an async runtime or a lower-level HTTP library like hyper, you can write it without Send + Sync + 'static bounds today. If not, you might need to wait for web framework support for non-Send + 'static futures.
+
+太坏了，生态都被 Send 的框架占完了。
+
+    I don’t think that this is really a problem, but I do feel like there are now two languages into one: a lower-level language for CPU-only operations, that uses references and precisely tracks ownership of everything, and a higher-level language for I/O, that solves every problem by cloning data or putting it in Arcs.
+
+hhh
+
+    // A hypothetical better async spawn
+    pub fn spawn<F, Fut>(f: F) -> JoinHandle<Fut::Output>
+    where
+        F: FnOnce() -> Fut + Send + 'static,
+        Fut: Future,
+        Fut::Output: Send + 'static,
+
+他觉得 spawn 应该传入一个闭包，这个闭包是 Send 的。运行闭包会返回一个随便什么 Future。这样可以保证 spawn 时刻的负载均衡。
+
+有点像 compio 的 dispatch 的 api。感觉这个是有道理的。

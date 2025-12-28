@@ -1,0 +1,90 @@
+=encoding utf8
+
+Mon Nov 24 18:42:27 CST 2025
+
+L<https://github.com/alacritty/alacritty/issues/6899>
+
+用 alacritty 用了几天，遇到了这个 bug。tmux 的 prefix key 突然就不好使了。打算换个终端看看。
+
+现在用笔记本用的多，找个省电的……
+
+wezterm、rio 和 kitty 看起来都不错。
+
+L<https://forums.macrumors.com/threads/alacritty-vs-kitty-vs-rio-vs-wezterm-minimalistic-terminal-emulator.2396104/>
+
+吼吼还真有人把这四个拿来比的。省的自己动手了。
+
+但是没几个人回答。所以还是没啥用，白高兴一场。
+
+L<https://www.reddit.com/r/linuxmasterrace/comments/vq98yr/which_terminal_emulator_do_you_recommend/>
+
+    Wezterm has that, kitty graphics support, sixel graphics (lsix works), iTerm2 image support, multiplexer, splits, panes, gpu rendering, yadda yadda yadda. (If you're looking for features - Wezterm is the shit!)
+
+    Use it for a day, and then notice high CPU spikes (I have AMD CPU & GPU)
+
+hmm wezterm 看起来不妙啊……
+
+    Kitty has built in opt-out telemetry, and when the main dev is told about this, he just says he disagrees rather than solving the issue.
+
+kitty 也不太行？好吧终端是好终端。
+
+    executing "time find /usr"
+        alacritty: 0,65s user 1,37s system 98% cpu 2,047 total
+        gnome-terminal: 0,66s user 1,49s system 50% cpu 4,272 total
+        kitty: 0,89s user 1,46s system 64% cpu 3,633 total
+
+L<https://sw.kovidgoyal.net/kitty/performance/>
+
+kitty 的性能测试。里面专门有一栏就是 energy use
+
+我去，kitty 原来可以调 fps 啊，那我调个 30 出来不爽了。
+
+坏。kitty 不支持 windows
+
+L<https://github.com/alacritty/alacritty/issues/5126>
+
+alacritty 是不支持调 fps 的。
+
+Tue Nov 25 16:24:31 CST 2025
+
+试了下感觉 rio 好酷，可以调 fps，还有好玩的 crt 模式。感觉试几天 rio。
+
+哦，rio 也遇到了和 alacritty 同样的问题……那看来不是软件的 bug 了。
+
+L<https://github.com/raphamorim/rio/issues/354>
+
+    Update: after spending more time on this and testing a few different settings, I found that disabling disable-ctlseqs-alt makes it work (as expected):
+
+原来是这样！虽然没搞懂发生了什么，但是反正它现在暂时可以工作了。
+
+Tue Nov 25 19:41:52 CST 2025
+
+坏，rio 在用 aichat 在 tmux 里输出长篇大论的时候会有问题，底下的 bar 会莫名其妙往上移。
+
+不懂了。
+
+把高亮和 wrap 关掉还是这样的。感觉是个 bug
+
+Wed Nov 26 18:17:01 CST 2025
+
+这个不能用 aichat 的 bug 太烦人了。我得想办法修一下。不是修 aichat 就是修 rio。
+
+呃，似乎只在 aichat 输出到行尾，自然换行的时候会问题。如果之前分个屏就不会出问题了。
+
+好吧，继续用吧
+
+Thu Nov 27 13:32:42 CST 2025
+
+L<https://github.com/raphamorim/rio/issues/1013>
+
+看到了个 issue，看起来就是我遇到的问题。
+
+Thu Nov 27 14:06:38 CST 2025
+
+hmm，调查了一下，tmux prefix 快捷键不好使的本质是终端把 alt + 快捷键发送成 esc 序列了。然后 tmux 的设置里又把 escape-time 设置成了 0，导致 alt 快捷键被识别成单独的 esc。很坏。
+
+那么解决方法就是 a) 让 alacritty 不发送 esc 序列和 b) 增大 escape-time
+
+改 tmux 好了。
+
+花了好久和 ai 一起试图修 rio 的换行问题。没什么进展。

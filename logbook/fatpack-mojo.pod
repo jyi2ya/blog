@@ -1,0 +1,41 @@
+=encoding utf8
+
+Sat Nov 15 06:20:25 PM CST 2025
+
+L<https://gist.github.com/dex4er/0e2ef2d1582307a14329>
+
+看到有个 fatpack mojolicious，感觉有意思。看来 mojolicious 可以用不带 c 扩展的纯 perl 实现？
+
+    [2] hepnode0 18:37 ~/tmp/mojo-fatpack
+    0 perl packed.pl daemon
+    Unable to open html entities file (resources/html_entities.txt): No such file or directory at packed.pl line 5742.
+    Compilation failed in require at packed.pl line 5742.
+    BEGIN failed--compilation aborted at packed.pl line 5742.
+    Compilation failed in require at packed.pl line 22280.
+    BEGIN failed--compilation aborted at packed.pl line 22280.
+    Compilation failed in require at packed.pl line 785.
+    BEGIN failed--compilation aborted at packed.pl line 27002.
+    Compilation failed in require at packed.pl line 34899.
+    BEGIN failed--compilation aborted at packed.pl line 34899.
+
+好像不行。
+
+    >42s< hepnode0 18:38 ~/tmp/mojo-fatpack
+    0 cp -a ~/.package/pkgsrc/lib/perl5/vendor_perl/5.42.0/Mojo/resources/ .
+    fatlib/  fatpacker.trace  fatpack-mojo-app.sh*  mojo-app.pl  mojo-app.plc*  packed.pl  packlists  resources/
+    hepnode0 18:39 ~/tmp/mojo-fatpack
+    0 perl packed.pl daemon
+    [2025-11-15 18:39:32.14857] [3105561] [info] Listening at "http://*:3000"
+    Web application available at http://127.0.0.1:3000
+
+哦哦，把 resources 拷过来就好了。
+
+还真能用。看看异步行不行。还真可以。好玩。
+
+看了下 reactor 用的是 Mojo::Reactor::Poll
+
+不用那个 github 脚本，直接 fatpack 也能用。
+
+但是 async await 就用不了了，因为需要依赖 Future::AsyncAwait，那个是要 .so 的。只能用古法 continuation 编程了。
+
+嘻嘻，可以用 mojolicious 写小玩具什么的。
