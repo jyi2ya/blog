@@ -28,4 +28,4 @@
 
 并非写给人类看的博文，可能不太可读
 
-[logbook](/logbook/index.html)
+[logbook](/logbook.html)
