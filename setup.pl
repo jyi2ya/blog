@@ -7,6 +7,7 @@ use open qw/:std :utf8/;
 utf8::decode($_) for @ARGV;
 
 use Getopt::Long;
+use Env qw/@PERL5LIB/;
 
 my %option;
 
@@ -14,6 +15,8 @@ GetOptions (
     \%option,
     'deploy',
 ) or die;
+
+unshift @PERL5LIB, './plugins/ikiplugins/';
 
 system qw#ikiwiki --setup ./jyi.setup#;
 system qw#ikiwiki-calendar ./jyi.setup#;

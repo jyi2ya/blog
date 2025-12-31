@@ -44,6 +44,8 @@ add_plugins:
 - calendar
 - sidebar
 - trail
+- pod
+- txt
 # plugins to disable
 disable_plugins: []
 # additional directory to search for template files
@@ -414,3 +416,5 @@ tagbase: tags
 #tag_autocreate: 1
 # commit autocreated tag pages
 #tag_autocreate_commit: 1
+
+pod_index: true

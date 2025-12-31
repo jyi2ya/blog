@@ -18,3 +18,14 @@
 * [Saurlax](https://saurl.ax/)
 * [IcyDesert](https://icyds.net/)
 * [Vaala](https://vaala.cat/)
+* [NACK](https://vaaandark.top/)
+
+## 博文列表
+
+[posts](/posts.html)
+
+## 冲浪笔记
+
+并非写给人类看的博文，可能不太可读
+
+[logbook](/logbook/index.html)
