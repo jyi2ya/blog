@@ -3,7 +3,6 @@ use 5.036;
 use utf8;
 use warnings 'all';
 use autodie ':all';
-use open qw/:std :utf8/;
 utf8::decode($_) for @ARGV;
 
 use Getopt::Long;
@@ -19,6 +18,7 @@ GetOptions (
 unshift @PERL5LIB, './plugins/ikiplugins/';
 unshift @PERL5LIB, './plugins/jyi/';
 
+system qw#./mtime-restore.pl#;
 system qw#ikiwiki --setup ./jyi.setup#;
 system qw#ikiwiki-calendar ./jyi.setup#;
 

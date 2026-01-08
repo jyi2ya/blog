@@ -37,7 +37,7 @@ cgi_overload_message: ''
 # enable optimization of only refreshing committed changes?
 only_committed_changes: 0
 # rcs backend to use
-rcs: git
+# rcs: git
 # plugins to add to the default configuration
 add_plugins:
 - gettitle

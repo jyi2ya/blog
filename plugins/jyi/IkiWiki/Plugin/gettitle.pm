@@ -16,11 +16,11 @@ sub filter(@) {
     my $content = $params{content};
 
     my $title = do {
-        if ($content =~ /^=head1\s+(.+)/m) {
+        if ($content =~ /^title:\s*(.+)/m) {
+            $1
+        } elsif ($content =~ /^=head1\s+(.+)/m) {
             $1
         } elsif ($content =~ /^#\s+(.+)/m) {
-            $1
-        } elsif ($content =~ /^title:\s*(.+)/m) {
             $1
         } else {
             undef
