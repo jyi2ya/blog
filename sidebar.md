@@ -2,14 +2,29 @@
 [[!calendar pages="page(./posts/*) and !*/Discussion"]]
 """]]
 
-[[Recent Comments|comments]]
+## 我的地址
 
-[[Archives]]
+* jyi2ya (X) qq.com
+* admin (X) villv.tech
 
-[[Tags]]:
-[[!pagestats style="list" pages="./tags/*" among="./posts/*"]]
+(X) 换成 @
+
+## [博文列表](/posts.html)
+
+所有文章的列表
+
+## [冲浪笔记](/logbook.html)
+
+并非写给人类看的博文，可能不太可读
 
 ## 朋友费
+
+### 线下的朋友
+
+* [ligen](https://ligen.life/)
+* [NACK](https://vaaandark.top/)
+
+### 线上的朋友
 
 * [capoo-fan](https://capoo-fan.github.io/blog)
 * [Rain Chen](https://congjyu.github.io)
@@ -18,14 +33,11 @@
 * [Saurlax](https://saurl.ax/)
 * [IcyDesert](https://icyds.net/)
 * [Vaala](https://vaala.cat/)
-* [NACK](https://vaaandark.top/)
 
-## 博文列表
+[[Recent Comments|comments]]
 
-[posts](/posts.html)
+[[Archives]]
 
-## 冲浪笔记
+[[Tags]]:
+[[!pagestats style="list" pages="./tags/*" among="./posts/*"]]
 
-并非写给人类看的博文，可能不太可读
-
-[logbook](/logbook.html)

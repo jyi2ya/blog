@@ -17,6 +17,7 @@ GetOptions (
 ) or die;
 
 unshift @PERL5LIB, './plugins/ikiplugins/';
+unshift @PERL5LIB, './plugins/jyi/';
 
 system qw#ikiwiki --setup ./jyi.setup#;
 system qw#ikiwiki-calendar ./jyi.setup#;

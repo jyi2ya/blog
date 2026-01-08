@@ -1,2 +1,4 @@
 ikiwiki
 libpod-xhtml-perl
+libhighlight-perl
+perlmagick
