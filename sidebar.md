@@ -34,6 +34,12 @@
 * [IcyDesert](https://icyds.net/)
 * [Vaala](https://vaala.cat/)
 
+### 线上的另一些朋友
+
+* [Viki](https://blog.viki.moe/)
+* [Xiaohui](https://yunnet.top/)
+* [ThriceCola](https://thricecola.com/)
+
 [[Recent Comments|comments]]
 
 [[Archives]]
