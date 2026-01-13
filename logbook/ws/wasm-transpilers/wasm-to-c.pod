@@ -157,3 +157,19 @@ L<https://github.com/jyi2ya/simple-calc>
 戳啦，原来是忘记开优化导致的。感觉性能还是挺不错的。
 
 虽然灵车但是感觉还是可以用的。
+
+Tue Jan 13 21:17:57 CST 2026
+
+    Benchmark 1: ./a.out ~/src/util/pixpix/assets/8620.png
+      Time (mean ± σ):      2.331 s ±  0.027 s    [User: 2.254 s, System: 0.077 s]
+      Range (min … max):    2.291 s …  2.367 s    10 runs
+    
+    Benchmark 2: ~/.cargo/target/release/pixpix ~/src/util/pixpix/assets/8620.png
+      Time (mean ± σ):      2.385 s ±  0.070 s    [User: 2.287 s, System: 0.098 s]
+      Range (min … max):    2.268 s …  2.550 s    10 runs
+    
+    Summary
+      ./a.out ~/src/util/pixpix/assets/8620.png ran
+        1.02 ± 0.03 times faster than ~/.cargo/target/release/pixpix ~/src/util/pixpix/assets/8620.png
+
+补一个 hyperfine，怎么比原版还快两个点。
