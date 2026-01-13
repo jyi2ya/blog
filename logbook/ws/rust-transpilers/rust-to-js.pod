@@ -173,3 +173,91 @@ sdk 会初始化出来一个 retasmFunc，它和 wasm 模块的成员基本一�
 用 generator 好了。
 
 嘻嘻，generator 是好的。它可以跑起来。
+
+Mon Jan 12 18:53:04 CST 2026
+
+今天突然想到，用 wasm2js 的方法搞出来的 js，它会直接用巨大的 u8 数组来模拟内存。gc 之类的特性完全没用上，rust 也必须要配套一个 allocator。js 和 rs 互相调用还得做类似 ffi 的转换。
+
+我看到 rust 有个 asmjs 的 target，不知道编译成 asmjs 会不会好一点。
+
+坏，发现 rust 已经把 asmjs drop 掉了。最后一个支持 asmjs 的 stable 版本是 1.75-x86_64-unknown-linux-gnu 
+
+L<https://releases.rs/docs/1.76.0/>
+
+    Remove asmjs-unknown-emscripten target
+
+L<https://github.com/rust-lang/rust/pull/117338/>
+
+    asmjs-unknown-emscripten does not work as-specified, and lacks essential upstream support for generating asm.js, so it should not exist at all.
+
+L<https://github.com/rust-lang/compiler-team/issues/668>
+
+    The target support code will be placed beyond the reach of mortal hands removed, because it is impossible to make the asmjs target functional again with any recent version of emscripten.
+
+L<https://github.com/emscripten-core/emscripten/issues/18013>
+
+    WASM=0 emits JS, correct. It isn't valid asm.js.
+    You'd need to use an older version of emcc for that.
+    Why do you need asm.js, btw?
+
+哦，原来是 emscripten 把 asm.js 扬了导致的……
+
+    You can target pure JS using -sWASM=0. Does that work for your case?
+
+哦，但是 emcc 还是可以生成 wasm 的？
+
+所以现在有两条路可以选择，a) 调好一套旧的工具链 b) 用新的工具链，然后让 emcc 生成 js（但是不是 asm.js）
+
+决定先试试后一个。
+
+    [101] jyi-00-rust-dev 19:13 (master) ~/dev/rust-hello
+    0 EMCC_CFLAGS='-sWASM_BIGINT=0 -sWASM=0' cr --target wasm32-unknown-emscripten
+       Compiling rust-hello v0.1.0 (/home/jyi/dev/rust-hello)
+    error: linking with `emcc` failed: exit status: 1
+      |
+      = note:  "emcc" "-s" "EXPORTED_FUNCTIONS=[\"_main\"]" "<9 object files omitted>" "/home/jyi/.cargo/target/wasm32-unknown-emscripten/debug/deps/{libpanic_unwind-eabca3e06c8e1675,libstd-f6634c7a8e8f4e83,libcfg_if-06039441cf63711e,librustc_demangle-2e55913e8e5a0aa3,libstd_detect-b0944cac400fce63,libhashbrown-d50f57030afe2e60,librustc_std_workspace_alloc-d41e223207a84dc8,libunwind-f32468a84aa3db1e,liblibc-104f718dd92fbd8e,librustc_std_workspace_core-dab51820f68c2b19,liballoc-912baf8f4b33a340,libcore-290f9afa3a8590ad,libcompiler_builtins-75a0c59c5ac946f3}.rlib" "-B<sysroot>/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld" "--target=wasm32-unknown-emscripten" "-fwasm-exceptions" "-L" "<sysroot>/lib/rustlib/wasm32-unknown-emscripten/lib/self-contained" "-o" "/home/jyi/.cargo/target/wasm32-unknown-emscripten/debug/deps/rust_hello.js" "-O0" "-g0" "-sABORTING_MALLOC=0" "-sWASM_BIGINT"
+      = note: some arguments are omitted. use `--verbose` to show all linker arguments
+      = note: Unknown option '--enable-bulk-memory-opt'
+              emcc: error: '/usr/bin/wasm2js --emscripten /tmp/emscripten_temp_ve3shvmy/rust_hello.wasm --mvp-features --enable-bulk-memory --enable-bulk-memory-opt --enable-call-indirect-overlong --enable-exception-handling --enable-multivalue --enable-mutable-globals --enable-nontrapping-float-to-int --enable-reference-types --enable-sign-ext' failed (returned 1)
+
+？？怎么它看起来是先生成 wasm 再调用 wasm2js 转成 js 的。这不是和我的做法一样的吗。
+
+    [101] >11s< jyi-00-rust-dev 19:17 (master) ~/dev/rust-hello
+    0 EMCC_CFLAGS='-sWASM_BIGINT=0 -sWASM=0' cr --target wasm32-unknown-emscripten
+       Compiling rust-hello v0.1.0 (/home/jyi/dev/rust-hello)
+    error: linking with `emcc` failed: exit status: 1
+      |
+      = note:  "emcc" "-s" "EXPORTED_FUNCTIONS=[\"_main\"]" "<9 object files omitted>" "/home/jyi/.cargo/target/wasm32-unknown-emscripten/debug/deps/{libpanic_unwind-bdbe9a9b0274e44f,libstd-739ffc2e7855d128,libcfg_if-59e57702604b102d,librustc_demangle-a82bc4bf62771463,libstd_detect-beef2a27598aac14,libhashbrown-be2e328f12966f5f,librustc_std_workspace_alloc-64a3e3e592d1fda5,libunwind-6050c4518bfd2f51,liblibc-65c16e189fe6911c,librustc_std_workspace_core-19950484ac145676,liballoc-178f7f67cfaad25b,libcore-c5d669c26a2b4488,libcompiler_builtins-e33924f67dbd95d9}.rlib" "-B<sysroot>/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld" "--target=wasm32-unknown-emscripten" "-fwasm-exceptions" "-L" "<sysroot>/lib/rustlib/wasm32-unknown-emscripten/lib/self-contained" "-o" "/home/jyi/.cargo/target/wasm32-unknown-emscripten/debug/deps/rust_hello.js" "-O0" "-g0" "-sABORTING_MALLOC=0" "-sWASM_BIGINT"
+      = note: some arguments are omitted. use `--verbose` to show all linker arguments
+      = note: Fatal: wasm2js cannot convert (try $label$3
+               (do
+                (local.set $2
+                 (call $12
+                  (i32.add
+                   (local.get $1)
+                   (i32.const 12)
+                  )
+                 )
+                )
+               )
+               (catch_all
+                (global.set $global$0
+                 (local.get $1)
+                )
+                (rethrow $label$3)
+               )
+              )
+              emcc: error: '/usr/bin/wasm2js --emscripten /tmp/emscripten_temp_2zzgoriu/rust_hello.wasm --mvp-features --enable-exception-handling --enable-multivalue --enable-mutable-globals --enable-reference-types --enable-sign-ext' failed (returned 1)
+    
+    
+    error: could not compile `rust-hello` (bin "rust-hello") due to 1 previous error
+
+好吧看起来不行。
+
+谁能想到 emcc 禁用 wasm 是靠先生成 wasm 再转换成 js 实现的……
+
+L<https://ruanyifeng.com/blog/2017/09/asmjs_emscripten.html>
+
+草，原来 asmjs 管理内存的方法就是开个数组当内存用。
+
+这下难绷了。rust 编译到 js 疑似大失败了。

@@ -1,0 +1,159 @@
+=encoding utf8
+
+Tue Jan 13 18:39:44 CST 2026
+
+经过仔细探索，似乎所有 rust 编译到 XX 语言的方案都不如直接编译到 wasm/wasi 再编译到目标语言。所以应该对 wasm 的生态做点调查。
+
+L<https://github.com/turbolent/w2c2>
+
+一个把 wasm 编译到 c 的东西。看了下它不支持 socket，决定放弃。
+
+L<https://www.wingolog.org/archives/2025/10/30/wastrel-a-profligate-implementation-of-webassembly>
+
+另一个，说是完整支持 wasip1。最好试试。
+
+    >16s< jyi-00-rust-dev 18:52 ~/.c/ta/wasm32-wasip1/debug
+    0 wastrel rust-hello.wasm
+    rust-hello.wasm.BTHbhf.c: In function ‘func_392’:
+    rust-hello.wasm.BTHbhf.c:15277:38: error: expected ‘;’ before ‘indirect_i32_1’
+    15277 |   indirect_i32_0 = i32_const(1055776)
+          |                                      ^
+          |                                      ;
+    15278 |   indirect_i32_1 = i32_const(1055792)
+          |   ~~~~~~~~~~~~~~
+    rust-hello.wasm.BTHbhf.c:15283:14: error: ‘tmp_0’ undeclared (first use in this function); did you mean ‘type_0’?
+    15283 |   local_5 = (tmp_0 & i32_const(1));
+          |              ^~~~~
+          |              type_0
+
+wastrel 好像有点 bug，不过看起来不是什么大问题。我试着改一下……
+
+    diff --git a/module/wastrel/backend.scm b/module/wastrel/backend.scm
+    index b455a26..f76cc3e 100644
+    --- a/module/wastrel/backend.scm
+    +++ b/module/wastrel/backend.scm
+    @@ -701,7 +701,7 @@
+                                   (prepare-call sig (map value-expr args)))
+                 (lambda (indirect-args direct-args direct-result indirect-results)
+                   (for-each (match-lambda
+    -                          ((name . arg) (emit! "~a = ~a" name arg)))
+    +                          ((name . arg) (emit! "~a = ~a;" name arg)))
+                             indirect-args)
+                   (let ((call (make-call (value-expr operator)
+                                          (string-join direct-args ", "))))
+    @@ -1345,7 +1345,7 @@
+                 (match result-names
+                   ((direct-name indirect-local-name ...)
+                    (for-each (lambda (thread-local local)
+    -                           (fmt! "  ~a = ~a\n" thread-local local))
+    +                           (fmt! "  ~a = ~a;\n" thread-local local))
+                              indirect-name indirect-local-name)
+                    (fmt! "  return ~a;\n" direct-name))))))
+            (fmt! "}\n"))))
+
+在 deepseek 的帮助下改好了。现在能用了。llm 真好。
+
+    0 wastrel rust-hello.wasm
+    Hello, world!
+
+至少现在跑起来了。测试一下更复杂的程序看看。
+
+试了下 miniserve，感觉有点坏啊，ring 编译不过去。又是可恶的密码学……用 C<no-default-features> 好了。
+
+    error: Socket2 doesn't support the compile target
+       --> /home/jyi/.cargo/registry/src/mirrors.cernet.edu.cn-0d8da22710581788/socket2-0.6.1/src/lib.rs:184:1
+        |
+    184 | compile_error!("Socket2 doesn't support the compile target");
+        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+呃，死掉了。
+
+看来网络编程还为时尚早……
+
+再试试 cli 小工具好了，比如 bat 这种单线程又只有文件 IO 的。
+
+    error: Neither cfg(unix) nor cfg(windows) was true, aborting.
+      --> /home/jyi/.cargo/registry/src/mirrors.cernet.edu.cn-0d8da22710581788/clircle-0.6.1/src/lib.rs:55:9
+       |
+    55 |         compile_error!("Neither cfg(unix) nor cfg(windows) was true, aborting.");
+       |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+啊啊啊啊你又是谁
+
+L<https://github.com/niklasmohrin/clircle>
+
+    Detect cyclic file handles with ease.
+
+为什么一个高端的 cat 需要用到这种功能呢？？
+
+    error[E0432]: unresolved import `sys::position`
+      --> /home/jyi/.cargo/registry/src/mirrors.cernet.edu.cn-0d8da22710581788/crossterm-0.27.0/src/cursor.rs:52:9
+       |
+    52 | pub use sys::position;
+       |         ^^^^^^^^^^^^^ no `position` in `cursor::sys`
+       |
+    note: found an item that was configured out
+
+这回是 crossterm 编译不过了……也对毕竟 wasm32-wasi 哪来的终端呢。
+
+我想想还有什么别的项目，又不用网络又没有终端颜色之类的需求……
+
+L<https://github.com/jyi2ya/simple-calc>
+
+这个倒是还算正常，可以跑。
+
+  >1m 55s< jyi-00-rust-dev 19:57 (master) ~/sr/util/pixpix
+  0 ./a.out assets/wh.jpg
+  
+  thread 'main' (1) panicked at src/main.rs:88:41:
+  called `Result::unwrap()` on an `Err` value: IoError(Os { code: 44, kind: NotFound, message: "No such file or directory" })
+  Illegal instruction
+
+哎怎么会这样呢？？
+
+我试试能不能就做一个最简单的 cat 程序……
+
+好怪哦，为什么读不出来。
+
+有点搞不懂了，可能和它的沙盒机制有关。但是我没找到可以关掉它的沙盒的方法。
+
+还是试试 w2c2 算了。
+
+    [1] jyi-00-rust-dev 20:28 (main) ~/sr/la/w2c2/build
+    0 gcc -I ../w2c2 pixpix.c -lm
+    /usr/bin/ld: /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o: in function `_start':
+    (.text+0x17): undefined reference to `main'
+    /usr/bin/ld: /tmp/ccsWWtDs.o: in function `f23':
+    pixpix.c:(.text+0x535): undefined reference to `trap'
+    /usr/bin/ld: /tmp/ccsWWtDs.o: in function `f76':
+    pixpix.c:(.text+0xd0c): undefined reference to `trap'
+    /usr/bin/ld: /tmp/ccsWWtDs.o: in function `f116':
+    pixpix.c:(.text+0xd48): undefined reference to `trap'
+
+坏了，是不是有什么东西没编译上。
+
+    jyi-00-rust-dev 20:39 (main) ~/sr/la/w2c2/build
+    0 gcc -DHAS_TIMESPEC -DHAS_UNISTD -I../wasi -I../w2c2 ../wasi/wasi.c pixpix.c main.c -lm
+    CMakeCache.txt  Makefile  cmake_install.cmake  pixpix.c  pixpix.wasm*  wasi/
+    CMakeFiles/     a.out*    main.c               pixpix.h  w2c2/
+    jyi-00-rust-dev 20:39 (main) ~/sr/la/w2c2/build
+
+从它的 ls 示例里偷了个 main 函数拼上终于编译成功了。但是编译出来的 a.out 似乎会把所有路径前面加个 / 变成绝对路径。有点难绷……
+
+    real    0m2.389s
+    user    0m2.290s
+    sys     0m0.095s
+
+    real    0m24.238s
+    user    0m24.147s
+    sys     0m0.088s
+
+哦哦，跑出来了，性能是原版的 1/10！
+
+    real    0m2.410s
+    user    0m2.332s
+    sys     0m0.074s
+
+戳啦，原来是忘记开优化导致的。感觉性能还是挺不错的。
+
+虽然灵车但是感觉还是可以用的。

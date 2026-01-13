@@ -392,3 +392,8 @@ L<https://github.com/AeneasVerif/eurydice>
 
     In terms of software architecture, Eurydice consumes Rust programs via the Charon infrastructure, then extracts Rust to KaRaMeL's internal AST via a type-driven translation. Once in the KaRaMeL AST, 30+ nano-passes allow going from Rust down to C code. About half of these passes were already implemented for KaRaMeL, the rest of the passes reuse the KaRaMeL infrastructure but were freshly written for Eurydice.
 
+Tue Jan 13 18:28:51 CST 2026
+
+    There are more in the pipeline, and I look forward to seeing the supported subset of Rust grow even more. Next on the horizon is support for dyn traits via vtables, and relying on Charon’s monomorphization to get MIR exactly as the Rust compiler would monomorphize it, intead of relying on a custom procedure in Eurydice.
+
+好吧，连 dyn 都不支持。算了。
