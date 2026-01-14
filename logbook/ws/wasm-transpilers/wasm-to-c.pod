@@ -173,3 +173,190 @@ Tue Jan 13 21:17:57 CST 2026
         1.02 ± 0.03 times faster than ~/.cargo/target/release/pixpix ~/src/util/pixpix/assets/8620.png
 
 补一个 hyperfine，怎么比原版还快两个点。
+
+Wed Jan 14 16:00:09 CST 2026
+
+想了想 wastrel 还是比 w2c2 更好一点，毕竟只生成一个文件，也不用手动组装 main 函数。更阳间一些。
+
+还是研究研究 wastrel 怎么用好了。
+
+    [1] jyi-00-rust-dev 16:21 ~/tmp/wast
+    0 ./a.out cat.c
+    Error: Os { code: 44, kind: NotFound, message: "No such file or directory" }
+
+wastrel 编译之后为什么会提示打不开文件呢……
+
+怪了，我 C<system("stat cat.c")> 又是好的。
+
+    write(2, "IT BEGINS\n", 10IT BEGINS
+    )             = 10
+    write(2, "Error: ", 7Error: )                  = 7
+    write(2, "Os", 2Os)                       = 2
+    write(2, " { ", 3 { )                      = 3
+    write(2, "code", 4code)                     = 4
+    write(2, ": ", 2: )                       = 2
+
+好怪哦，它完全没做任何系统调用就失败了。
+
+    0 gcc cat.c && ./a.out cat.c
+    IT BEGINS
+    local_0 is 1048144 at line 16626
+    func_167
+    local_0 is 1048144 at line 16644
+    local_0 is -1 at line 16647
+    will skip open, jump to label2
+    Error: Os { code: 44, kind: NotFound, message: "No such file or directory" }
+
+使用古法 printf 调试……
+
+看样子是它在打开文件的时候从内存里读了个数值，发现是 0，就直接返回了。
+
+   jyi-00-rust-dev 17:06 (main) ~/sr/la/w2c2/build
+   0 md5sum dump.txt
+   e3a951a5de90a91ba32136af5717b3eb  dump.txt
+
+   jyi-00-rust-dev 17:07 ~/tmp/wast
+   0 md5sum dump.txt
+   e3a951a5de90a91ba32136af5717b3eb  dump.txt
+
+把 w2c2 和 wastrel 的初始内存映像给存下来了，发现是一样的，那就是后面运行的时候出了问题？
+
+有点奇怪了。可能是 wastrel 的实现有点问题吗
+
+    jyi-00-rust-dev 17:48 ~/tmp/wast
+    0 wasmtime --dir=. cat.wasm cat.c
+    
+    [1] jyi-00-rust-dev 17:49 ~/tmp/wast
+    0 wasmtime cat.wasm ./cat.c
+    Error: Os { code: 44, kind: NotFound, message: "No such file or directory" }
+
+用 wasmtime 跑了一下，发现它必须得先启用沙盒才能正常打开文件。wastrel 会不会也要沙盒才行……
+
+    [1] jyi-00-rust-dev 17:51 ~/tmp/wast
+    0 wastrel run --expose-dir=$PWD cat.wasm cat.c
+    Error: Os { code: 44, kind: NotFound, message: "No such file or directory" }
+
+好像也不太行
+
+    jyi-00-rust-dev 17:54 ~/tmp/wast
+    0 wastrel run --expose-dir=$PWD cat.wasm $PWD/cat.c
+
+这样就好了。
+
+L<https://github.com/bytecodealliance/wasmtime/blob/main/docs/WASI-tutorial.md#executing-in-wasmtime>
+
+    As a brief aside, note that we used the path . above to grant the program access to the current directory. This is needed because the mapping from paths to associated capabilities is performed by libc, so it's part of the WebAssembly program, and we don't expose the actual current working directory to the WebAssembly program. So providing a full path doesn't work:
+
+神秘，如果指定共享的是绝对路径，wasm 程序就不能用相对路径；如果共享的是相对路径，wasm 程序就不能用绝对路径。wastrel 的 expose-dir 不支持相对路径，只接受绝对路径……
+
+    jyi-00-rust-dev 18:02 ~/tmp/wast
+    0 diff -u cat.c cat.wasm.AV9s8I.c
+    --- cat.c       2026-01-14 17:59:06.045669963 +0800
+    +++ cat.wasm.AV9s8I.c   2026-01-14 18:02:16.469412470 +0800
+    @@ -2677,7 +2677,7 @@
+                              struct access path, struct access stat_out) {
+       int lookup_flags = 0;
+       if (!(flags & WASI_LOOKUP_SYMLINK_FOLLOW))
+    -    lookup_flags |= AT_SYMLINK_NOFOLLOW;
+    +    lookup_flags |= AT_SYMLINK_NOFOLLOW;
+    
+       char path_buf[1024];
+       if (path.len > sizeof(path_buf) - 1)
+    @@ -2701,7 +2701,7 @@
+                                    int32_t fst_flags) {
+       int lookup_flags = 0;
+       if (!(flags & WASI_LOOKUP_SYMLINK_FOLLOW))
+    -    lookup_flags |= AT_SYMLINK_NOFOLLOW;
+    +    lookup_flags |= AT_SYMLINK_NOFOLLOW;
+    
+       char path_buf[1024];
+       if (path.len > sizeof(path_buf) - 1)
+    @@ -2921,7 +2921,7 @@
+           return WASI_ERRNO_INVAL;
+         }
+       }
+    -
+    +
+       struct timespec overall_timeout;
+       struct timespec *overall_timeout_p = NULL;
+       if (min_timeout < UINT64_MAX) {
+    @@ -3404,9 +3404,11 @@
+       return wasip1_sock_shutdown(fd, how);
+     }
+     static const struct wasi_preopen wasi_preopens[] = {
+    +  {3, "/home/jyi/tmp/wast"},
+     };
+     static const struct wasi_preopen* wasi_preopen_for_fd(int fd) {
+       switch (fd) {
+    +  case 3: return &wasi_preopens[0];
+       default: return NULL;
+       }
+     }
+    @@ -3482,7 +3484,7 @@
+    
+     static inline void bind_one(const char *host, const char *guest) {
+       if (mount(host, guest, NULL, MS_BIND | MS_REC, NULL) == -1) {
+    -    fprintf(stderr, "error: failed to bind mount %s: %s\n",
+    +    fprintf(stderr, "error: failed to bind mount %s: %s\n",
+                 host, strerror(errno));
+         exit(1);
+       }
+    @@ -17279,7 +17281,13 @@
+       process_argc = argc;
+       process_argv = argv;
+       const char *root = prepare_sandbox();
+    +  make_empty_dir("home");
+    +  make_empty_dir("home/jyi");
+    +  make_empty_dir("home/jyi/tmp");
+    +  make_empty_dir("home/jyi/tmp/wast");
+    +  bind_one("/home/jyi/tmp/wast", "home/jyi/tmp/wast");
+       make_empty_dir("tmp0");
+       pivot(root, "tmp0");
+    +  prepare_preopen(3, "/home/jyi/tmp/wast");
+       func_14();
+     }
+    [1] jyi-00-rust-dev 18:02 ~/tmp/wast
+    0
+
+找了个正确的和错误的对照着看看
+
+好像还真是沙盒的问题……
+
+    wastrel compile --no-tracepoints --expose-dir=/ -S -o cat.correct.c cat.wasm
+
+这样就能得到正确的结果了。
+
+    0 ./pixpix ~/src/util/pixpix/assets/8620.png
+    
+    thread 'main' (1) panicked at src/main.rs:88:41:
+    called `Result::unwrap()` on an `Err` value: Decoding(DecodingError { format: Exact(Png), underlying: Some(Format(FormatError { inner: CorruptFlateStream { err: BadDistanceHuffmanTree } })) })
+    Illegal instruction
+
+也并非正确啊，这个 illegal instruction 给我整哪来了。
+
+    >5m 34s< jyi-00-rust-dev 18:46 ~/tmp/wast
+    0 ./pixpix ~/src/util/pixpix/assets/8620.png
+    =================================================================
+    ==497769==ERROR: AddressSanitizer: memcpy-param-overlap: memory ranges [0x772bbdb3d1c0,0x772bbdb3d1de) and [0x772bbdb3d1be, 0x772bbdb3d1dc) overlap
+        #0 0x772dc0ef264d in memcpy ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors_memintrinsics.inc:115
+        #1 0x5f19f844f52b in memory_copy /home/jyi/tmp/wast/pixpix.c:604
+        #2 0x5f19f844f52b in func_241 /home/jyi/tmp/wast/pixpix.c:76389
+        #3 0x5f19f8611af1 in func_739 /home/jyi/tmp/wast/pixpix.c:200067
+        #4 0x5f19f8699023 in func_804 /home/jyi/tmp/wast/pixpix.c:228561
+        #5 0x5f19f8787af8 in func_777 /home/jyi/tmp/wast/pixpix.c:211945
+        #6 0x5f19f878b162 in func_755 /home/jyi/tmp/wast/pixpix.c:203043
+        #7 0x5f19f87fa7de in func_37 /home/jyi/tmp/wast/pixpix.c:29823
+        #8 0x5f19f8866276 in func_27 /home/jyi/tmp/wast/pixpix.c:22236
+        #9 0x5f19f887dae7 in func_88 /home/jyi/tmp/wast/pixpix.c:48870
+        #10 0x5f19f887dc75 in func_18 /home/jyi/tmp/wast/pixpix.c:20024
+        #11 0x5f19f887de63 in main /home/jyi/tmp/wast/pixpix.c:268860
+        #12 0x772dc0c34ca7  (/lib/x86_64-linux-gnu/libc.so.6+0x29ca7) (BuildId: fce446c9d4ad48e2b0c90cce1a11722897805281)
+        #13 0x772dc0c34d64 in __libc_start_main (/lib/x86_64-linux-gnu/libc.so.6+0x29d64) (BuildId: fce446c9d4ad48e2b0c90cce1a11722897805281)
+        #14 0x5f19f80373e0 in _start (/home/jyi/tmp/wast/pixpix+0x63e0) (BuildId: cc02f67e84dfc357f5e416c517901d3d424d2b23)
+    
+    Address 0x772bbdb3d1c0 is a wild pointer inside of access range of size 0x00000000001e.
+    Address 0x772bbdb3d1be is a wild pointer inside of access range of size 0x00000000001e.
+    SUMMARY: AddressSanitizer: memcpy-param-overlap ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors_memintrinsics.inc:115 in memcpy
+    ==497769==ABORTING
+
+我超那我感觉这个正确性确实有问题啊，不太敢用了。还是 w2c2 好了。
