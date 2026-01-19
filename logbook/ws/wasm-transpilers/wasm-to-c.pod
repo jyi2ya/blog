@@ -360,3 +360,26 @@ L<https://github.com/bytecodealliance/wasmtime/blob/main/docs/WASI-tutorial.md#e
     ==497769==ABORTING
 
 我超那我感觉这个正确性确实有问题啊，不太敢用了。还是 w2c2 好了。
+
+Wed Jan 14 19:03:59 CST 2026
+
+L<https://github.com/turbolent/w2c2/issues/1>
+
+看起来 w2c2 功能性上比 wasm2c 要差一点。
+
+哦，wasm2c 可以直接用 apt 装 wabt，装完后就能得到 wasm2c 了。
+
+看了几个 example，感觉 wasm2c 用起来比 w2c2 要复杂一点。wasm2c 得手写一堆外围代码
+
+找到了一些早期文章。
+
+L<https://github.com/vshymanskyy/wasm2native>
+
+这个是基于 w2c2 的。
+
+L<https://kripken.github.io/blog/wasm/2020/07/27/wasmboxc.html>
+
+这个是基于 wasm2c 的，我研究一下它怎么处理的 wasi。
+
+L<https://hacks.mozilla.org/2020/02/securing-firefox-with-webassembly/>
+

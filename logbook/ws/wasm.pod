@@ -1,0 +1,33 @@
+=encoding utf8
+
+Fri Jan 16 17:16:19 CST 2026
+
+学一点 wasm。
+
+L<https://kripken.github.io/blog/binaryen/2018/04/18/rust-emscripten.html>
+
+    wasm32-unknown-unknown makes sense if you have code that does some pure computation and you want to call it from JavaScript. For example, maybe you’re writing some Rust code for your website that does math that benefits from the speed of WebAssembly. On the other hand, wasm32-unknown-emscripten makes sense if you have a complete program that uses APIs like libc, SDL, OpenGL, etc. For example, maybe you’re writing a game in Rust and you want to compile that same codebase to both a native build and to the Web.
+
+如果要让 wasm 纯计算，就用 wasm32-unknown-unknown；如果想让它调 API，就用 emscripten ……
+
+那么 emscripten 和 wasi 的关系是什么呢。
+
+L<https://github.com/WebAssembly/wasi-sdk/issues/222>
+
+只说了 wasi 是怎么运作的，没有提供什么有用的信息。
+
+L<https://www.webassembly.guide/webassembly-guide/browser/emscripten-tutorial>
+
+这里说 emscripten ABI 不稳定，wasi 会好一些。
+
+L<https://emscripten.org/docs/compiling/Building-Projects.html>
+
+    emcc ... -o output.wasm omits generating either JavaScript or HTML launcher file, and produces a single Wasm file built in standalone mode as if the -sSTANDALONE_WASM setting had been used. The resulting file expects to be run with the WASI ABI - in particular, as soon as you initialize the module you must manually invoke either the _start export or (in the case of --no-entry) the _initialize export before doing anything else with it.
+
+哦，emcc 搞出来的 wasm 是依赖 wasi 的。
+
+wasm 和 jvm 相比有哪些优势呢？我就知道一个 jvm 为了支持反射牺牲了很多优化机会。
+
+L<https://stackoverflow.com/questions/58131892/why-the-jvm-cannot-be-used-in-place-of-webassembly>
+
+大概是 1) 支持流式编译 2) 编译速度快 3) 攻击面小 4) 不仅仅是为了 Java 设计，更通用

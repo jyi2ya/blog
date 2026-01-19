@@ -1,0 +1,114 @@
+=encoding utf8
+
+Fri Jan 16 19:53:59 CST 2026
+
+有大量 JVM 调优经验，很可能是指开过服务器……
+
+网上流传了很多关于 minecraft 服务器性能的玄学。最好总结一下备用。
+
+Sun Jan 18 23:38:45 CST 2026
+
+L<https://optimisemyserver.com/>
+
+总集篇
+
+    The foundation of your Minecraft 1.20+ server performance lies in choosing the right server software. Modern high-performance forks offer significant improvements over vanilla servers, with enhanced optimization, better plugin support, and advanced features. We recommend selecting from these proven, actively maintained options.
+
+我要玩 mod 怎么说……PaperMC 之类的能跑 forge/fabric 吗
+
+L<https://www.reddit.com/r/admincraft/comments/syrpwq/best_way_to_use_papermc_but_still_have_forge_mods/>
+
+    You can't.
+    Unless you try forks that are not supported by mods and plugin developpers. So a lucky wheel.
+
+答案是不行。
+
+L<https://www.reddit.com/r/admincraft/comments/hwg8h0/is_it_possible_to_use_forge_with_papermc/>
+
+    Forge/fabric/lithium and bukitt/spigot/paper are different and incompatible things. Many are starting to use Lithium because it changes the technical side of the game, which is based on bugs once you hit a certain level, a lot less than Paper, which aggressively patches bugs in the vanilla code. Also quite frankly "because Hermitcraft uses it" which is not imo a good reason in and of itself.
+
+PaperMC 之类的东西对 minecraft 服务器做了很多优化，让它们性能更高。然而它们并不兼容 neoforge 的 API。
+
+    JVM startup flags are crucial for optimizing your Minecraft server's garbage collection behavior. There are two main garbage collector types to consider: G1GC (recommended for most servers) and ZGC (for high-performance setups with JDK 16+). Properly tuned flags will eliminate garbage collection spikes and maintain consistent TPS, though CPU usage may increase slightly for better stability.
+
+使用 ZGC 可以让服务器跑得更快？
+
+L<https://optimisemyserver.com/flags>
+
+L<https://flags.sh/>
+
+两个生成 JVM 配置的网站。我打算用这一组：
+
+    -Xms8G -Xmx8G --add-modules=jdk.incubator.vector -XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch -XX:+ParallelRefProcEnabled -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+UseNUMA -XX:+PerfDisableSharedMem -XX:TieredStopAtLevel=1 -XX:ZUncommitDelay=60 --nogui
+
+服务器配置文件也需要调整。
+
+L<https://github.com/YouHaveTrouble/minecraft-optimization>
+
+好像比较有用。
+
+修改 server.properties：设置 sync-chunk-writes 为 false
+
+有很多文档说预生成世界会比较有用……但是这只是优化了一点跑图体验吧。又不是时时刻刻都在跑图，感觉没啥必要。真等遇到问题了再说。
+
+network-compression-threshold 推荐成 256，说是能节约一点 CPU 资源。就是用 CPU 资源来换带宽。但是我带宽和 CPU 都很捉急。相比之下感觉带宽更捉急一点，所以还是设置成 0 好了。
+
+主要是不知道这个数据压缩是不是在主循环做的，如果 IO 是单独的线程的话那压缩就是纯收益了。正常人肯定不会把数据压缩放到主循环，但是它是 Mojang，我不好说。
+
+C<simulation-distance: 4> C<view-distance: 7>。肯定是越小越快的。但是不知道群友玩机械动力会不会动不动做横跨几个区块的大机机……先这么设置着等出问题再说。
+
+    Alternative JVM implementations such as OpenJ9 or GraalVM can work, however they are not supported by Paper and have been known to cause issues, therefore they are not currently recommended.
+
+坏，GraalVM 说是跑起来会有问题。
+
+L<https://github.com/GoldenForge/GoldenForge>
+
+挠头，说是一个性能更好，移植了 PaperMC 的性能补丁的 neoforge。听起来感觉有点灵车……
+
+看了下提交记录发现最新的一个是修复机械动力附属模组的兼容性问题的，还是别用好了。
+
+L<https://www.gamehostbros.com/guides/games/minecraft/neoforge-performance-guide>
+
+一大坨 neoforge 性能优化 mod。最好安一些试试。
+
+L<https://github.com/MeowIce/meowice-flags>
+
+比前面的 ZGC 更激进的 JVM 参数，还适配了 GraalVM。也许试一下 GraalVM 也不是不行……
+
+里面提到了 ZGC 在 8 核以下反而会更慢。无所谓我的机器一般核都挺多……
+
+L<https://github.com/tigercat2000/minecraft_graalvm_tutorial>
+
+graalvm 的教程，聚集于客户端，应该是写给小白看的。
+
+L<https://www.reddit.com/r/feedthebeast/comments/uz21wc/graalvm_speeds_up_modded_minecraft/>
+
+这里提到了 graalvm 把启动时间加快了约 10%。
+
+L<https://github.com/brucethemoose/Minecraft-Performance-Flags-Benchmarks>
+
+    You must use G1GC with these arguments. GraalVM currently doesn't work with ZGC or Shenandoah.
+
+哦，原来是3 年之前的帖子
+
+里头说 GraalVM 在客户端可能有显示上的问题，在服务端没啥问题。还给了一大堆参数。
+
+L<https://github.com/DataDalton/Minecraft-Performance-Guide/blob/main/Java%20Arguments/README.md>
+
+    ZGC is great for high memory and high core count servers. It has no server throughput hit which can be significantly measured, and does not stutter. However, it requires more RAM and more cores than most other garbage collectors.
+
+    The terms Enterprise Edition (EE) and Community Edition (CE) are now deprecated from GraalVM with a rebranding from Oracle. In the past, you had to be a Oracle subscriber to use the Enterprise Edition which had the features we want or use the Community Edition, now the public version which is just GraalVM have these features for free to the public, the new versions also include ZGC which is recommended to use with GraalVM over using its G1GC collector
+
+耶！GraalVM 免费了！
+
+哎，这里说推荐使用 ZGC，上面又说小内存不推荐使用 ZGC。
+
+还是用一下 ZGC 好了。
+
+Mon Jan 19 18:07:47 CST 2026
+
+开服大成功！
+
+虽然有些微妙的 bug，有人打开了奖励箱，生成战利品中的地图的时候需要查找周边结构，在寻找结构的时候超时了，导致它崩溃了一次……
+
+但是看起来不是 JVM 的问题。说明 GraalVM 是对的！
