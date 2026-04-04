@@ -1,0 +1,7 @@
+=encoding utf8
+
+Sun Feb  1 20:34:52 CST 2026
+
+写 Mojolicious，想实现背压，发现不好弄。思索了一下发现 EventEmitter 风格的异步本身就不太能做背压，除非给事件带个有界的队列。
+
+需要进一步比较 eventemitter、continuation/promise 和 asyncawait 三种异步风格的优劣。

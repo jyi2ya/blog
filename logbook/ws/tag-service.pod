@@ -1,0 +1,87 @@
+=encoding utf8
+
+Tue Feb 10 17:21:38 CST 2026
+
+需要写一个标签服务，把 AI 生成的标签聚合起来，来消除重复但是本质相同的标签。
+
+本来想着用向量模型把文本转换成向量，再用向量数据库查询相关性。但是发现有种叫重排序模型的东西，可以直接给出查询和文本之间的相关性。可以试试
+
+这个是本地 llama.cpp 部署的 qwen 0.6b reranking……
+
+    0 perl test-reranking.pl 'What is the capital of France?' 'Paris is the capital of France.' 'London is a major city in England.' 'France is a country in Europe.'
+    +------------------------------------+----+----------------------+
+    | item                               | id | relevance            |
+    +------------------------------------+----+----------------------+
+    | London is a major city in England. | 1  | 0.987469732761383    |
+    | France is a country in Europe.     | 2  | 2.38278868858188e-10 |
+    | Paris is the capital of France.    | 0  | 1.77041062365824e-10 |
+    +------------------------------------+----+----------------------+
+
+完全不能用。
+
+    rivus-sweethome 17:23 ~/tmp
+    0 perl test-reranking.pl 'What is the capital of France?' 'Paris is the capital of France.' 'London is a major city in England.' 'France is a country in Europe.'
+    +------------------------------------+----+---------------------+
+    | item                               | id | relevance           |
+    +------------------------------------+----+---------------------+
+    | Paris is the capital of France.    | 0  | 0.999846935272217   |
+    | France is a country in Europe.     | 2  | 0.0626271590590477  |
+    | London is a major city in England. | 1  | 0.00230952468700707 |
+    +------------------------------------+----+---------------------+
+
+这个是硅基流动的免费 bge m3 模型，看起来还行。
+
+    0 perl test-reranking.pl 交通出行 城市交通 交通工具 交通设施 公共交通 交通方式 铁路运输 铁路系统 出行方式
+    +----------+----+-------------------+
+    | item     | id | relevance         |
+    +----------+----+-------------------+
+    | 出行方式 | 7  | 0.967969298362732 |
+    | 交通方式 | 4  | 0.947917878627777 |
+    | 交通工具 | 1  | 0.914558112621307 |
+    | 公共交通 | 3  | 0.898177921772003 |
+    | 城市交通 | 0  | 0.88713127374649  |
+    | 交通设施 | 2  | 0.816911399364471 |
+    | 铁路运输 | 5  | 0.287989258766174 |
+    | 铁路系统 | 6  | 0.216271221637726 |
+    +----------+----+-------------------+
+
+用在标签场景也不错。
+
+但是我觉得这个 llama.cpp + qwen 的方案有点太离谱了……虽然说是模型小还量化了，但是不至于这种 1+1 的问题都给个错误结果出来。不如直接随机排序了都。
+
+L<https://github.com/ggml-org/llama.cpp/issues/16407>
+
+哦，原来是模型搞错了。
+
+    0 perl test-reranking.pl 'What is the capital of France?' 'Paris is the capital of France.' 'London is a major city in England.' 'France is a country in Europe.'
+    +------------------------------------+----+---------------------+
+    | item                               | id | relevance           |
+    +------------------------------------+----+---------------------+
+    | Paris is the capital of France.    | 0  | 0.997535645961761   |
+    | France is a country in Europe.     | 2  | 0.00643254164606333 |
+    | London is a major city in England. | 1  | 0.00310845742933452 |
+    +------------------------------------+----+---------------------+
+
+重测了一下，还是不错的。但是推理一次要 30 秒，还是有点太慢了……而且单个实例要 4.4 GB 内存。
+
+试试把自己的可怜集显利用起来……集显虽然打不过 16 Core 的大 CPU，但是打个 4 Core 的小哈基米应该还是能打得过的吧。
+
+Vulkan，启动！
+
+    sudo apt install libvulkan-dev glslc
+    cmake -B build -DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS -DLLAMA_CURL=OFF -DGGML_VULKAN=ON
+    cmake --build build --config Release -j
+
+PVE 把 /dev/dri/renderD128 给透传到 lxc 里，lxc 就能用了。注意需要在高级选项里把 group id 改成 lxc 内名为 render 的用户组的 id。
+
+如果不使用 vulkan 加速，跑一轮推理时间大概是 30 秒。加速之后大概是 20 秒，而且几乎不占用 CPU 时间了。
+
+然而还是慢慢的……
+
+本地部署的 rerank 模型似乎在有多个请求的时候是串行执行的，每个请求都要花掉 20 秒。
+
+哦，默认的 batch size 还只有 512。玩鸡毛啊
+
+硅基流动上面免费的 bge m3 可以有 8K 的
+
+哎，还是偷吃 siliconflow 的好了。

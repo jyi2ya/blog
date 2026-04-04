@@ -1,0 +1,15 @@
+=encoding utf8
+
+Sat Feb  7 13:57:59 CST 2026
+
+做一下 comp7903 的 lab1。
+
+L<https://go.exterro.com/download-ftk-imager-82>
+
+需要用软件来把磁盘 dump 出来。感觉是 GUI 版的 dd。
+
+不是自由软件，差评。
+
+哦，不是自己的电脑，是外部设备。暂时还没摸到。
+
+看图片有点像 SD 卡……

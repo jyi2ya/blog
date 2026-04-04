@@ -17,3 +17,21 @@ Sat Oct  4 12:34:23 CST 2025
     resolvectl default-route eth0 no
 
 禁用 default route，否则 dns 请求还是会走网卡从 dhcp 搞来的地址……不知道重启还有没有用
+
+Thu Jan 29 16:48:06 CST 2026
+
+答案是重启就没了，要搭配这个使用
+
+    [Unit]
+    Description=Set resolvectl default-route for eth0 to no
+    After=network-online.target systemd-resolved.service
+    Wants=network-online.target systemd-resolved.service
+
+    [Service]
+    Type=oneshot
+    ExecStart=/usr/bin/resolvectl default-route eth0 no
+    RemainAfterExit=no
+
+    [Install]
+    WantedBy=multi-user.target
+
