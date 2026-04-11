@@ -50,6 +50,7 @@ add_plugins:
 - brokenlinks
 - duckduckgo
 - img
+- html
 
 # plugins to disable
 disable_plugins: []
@@ -147,7 +148,7 @@ deterministic: 0
 
 # htmlscrubber plugin
 # PageSpec specifying pages not to scrub
-#htmlscrubber_skip: '!*/Discussion'
+htmlscrubber_skip: '!*/Discussion'
 
 # inline plugin
 # enable rss feeds by default?

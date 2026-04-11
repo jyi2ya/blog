@@ -1,3 +1,5 @@
+[[!inline pages=waifu raw=yes]]
+
 [[!if test="enabled(sidebar)" then="""
 [[!sidebar]]
 """ else="""

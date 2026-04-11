@@ -21,6 +21,7 @@ unshift @PERL5LIB, './plugins/jyi/';
 system qw#./mtime-restore.pl#;
 system qw#ikiwiki --setup ./jyi.setup#;
 system qw#ikiwiki-calendar ./jyi.setup#;
+system 'cp -r plugins/l2d/ ../jyi2ya.github.io/';
 
 if ($option{deploy}) {
     chdir '../jyi2ya.github.io/';
