@@ -8,11 +8,14 @@ binmode STDIN, ':utf8';
 binmode STDOUT, ':utf8';
 binmode STDERR, ':utf8';
 
+use FindBin;
 use JSON;
 use File::Find;
 use File::stat;
 
-system qw#./mtime-restore.pl#;
+chdir "$FindBin::Bin/..";
+
+system qw#scripts/mtime-restore.pl#;
 
 my $JSON = JSON->new->utf8(1)->pretty(1)->canonical(1);
 

@@ -5,6 +5,7 @@ use warnings 'all';
 use autodie ':all';
 utf8::decode($_) for @ARGV;
 
+use FindBin;
 use Getopt::Long;
 use Env qw/@PERL5LIB/;
 
@@ -15,10 +16,12 @@ GetOptions (
     'deploy',
 ) or die;
 
+chdir "$FindBin::Bin/..";
+
 unshift @PERL5LIB, './plugins/ikiplugins/';
 unshift @PERL5LIB, './plugins/jyi/';
 
-system qw#./mtime-restore.pl#;
+system qw#scripts/mtime-restore.pl#;
 system qw#ikiwiki --setup ./jyi.setup#;
 system qw#ikiwiki-calendar ./jyi.setup#;
 system 'cp -r plugins/l2d/ ../jyi2ya.github.io/';
