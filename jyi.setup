@@ -48,16 +48,15 @@ add_plugins:
 - pod
 - txt
 - brokenlinks
-- duckduckgo
 - img
 - html
 
 # plugins to disable
 disable_plugins: []
 # additional directory to search for template files
-templatedir: /usr/share/ikiwiki/templates
+templatedir: /home/jyi/dev/blog/local/share/ikiwiki/templates
 # base wiki source location
-underlaydir: /usr/share/ikiwiki/basewiki
+underlaydir: /home/jyi/dev/blog/local/share/ikiwiki/basewiki
 # display verbose messages?
 #verbose: 1
 # log to syslog?

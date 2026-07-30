@@ -1,0 +1,15 @@
+requires 'JSON';
+requires 'IO::String';
+requires 'HTML::Parser';
+requires 'HTML::Scrubber';
+requires 'HTML::Template';
+requires 'URI';
+requires 'Text::Markdown';
+requires 'TimeDate';
+requires 'YAML::LibYAML';
+requires 'CGI';
+requires 'CGI::FormBuilder', '3.0202';
+requires 'CGI::Session', '4.14';
+requires 'Mail::Sendmail';
+requires 'XML::Simple';
+requires 'Pod::Xhtml';
