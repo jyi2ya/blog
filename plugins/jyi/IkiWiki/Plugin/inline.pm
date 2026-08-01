@@ -527,6 +527,62 @@ sub pagetemplate_inline (@) {
 		if exists $feedlinks{$page} && $template->query(name => "feedlinks");
 }
 
+sub _truncate {
+	my ($content, $page, $destpage) = @_;
+	my $maxlen = $IkiWiki::config{truncate_length} // 0;
+	my $suffix = $IkiWiki::config{truncate_suffix} // '...';
+
+	require Encode;
+	my $c = Encode::decode_utf8($content) unless Encode::is_utf8($content);
+
+	require HTML::Entities;
+	my $vis = $c;
+	$vis =~ s/<[^>]+>//g;
+	HTML::Entities::decode_entities($vis);
+	$vis =~ s/\s//g;
+	return $content if length($vis) <= $maxlen;
+
+	my $result = '';
+	my $text_len = 0;
+	my @tag_stack;
+	my $i = 0;
+
+	while ($i < length($c)) {
+		last if $text_len >= $maxlen;
+		my $rest = substr($c, $i);
+		if ($rest =~ /^<[^>]*>/) {
+			my $tag = $&;
+			$result .= $tag;
+			$i += length($tag);
+			if ($tag =~ /^<\s*\/\s*([\w-]+)/i) {
+				pop @tag_stack if @tag_stack && lc($tag_stack[-1]) eq lc($1);
+			} elsif ($tag =~ /^<\s*([\w-]+)/i && $tag !~ /\/\s*>$/) {
+				my $name = lc($1);
+				push @tag_stack, $name
+					unless $name =~ /^(br|hr|img|input|meta|link|area|base|col|embed|source|track|wbr)$/;
+			}
+		} elsif ($rest =~ /^&(?:#x?[0-9a-fA-F]+|[a-zA-Z]+);/) {
+			$result .= $&;
+			$i += length($&);
+			$text_len++;
+		} else {
+			my $ch = substr($c, $i, 1);
+			$result .= $ch;
+			$i++;
+			$text_len++ unless $ch =~ /^\s$/;
+		}
+	}
+
+	for my $tag (reverse @tag_stack) {
+		$result .= "</$tag>";
+	}
+
+	my $pageurl = IkiWiki::urlto($page, $destpage);
+	$result .= qq{\n<p><a href="$pageurl">$suffix</a></p>};
+
+	return $result;
+}
+
 {
 my %inline_content;
 my $cached_destpage="";

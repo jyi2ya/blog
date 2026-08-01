@@ -50,9 +50,13 @@ add_plugins:
 - brokenlinks
 - img
 - html
+- relimg
+- truncate
 
 # plugins to disable
 disable_plugins: []
+truncate_length: 500
+truncate_suffix: '继续阅读...'
 # additional directory to search for template files
 templatedir: /home/jyi/dev/blog/local/share/ikiwiki/templates
 # base wiki source location
@@ -60,7 +64,7 @@ underlaydir: /home/jyi/dev/blog/local/share/ikiwiki/basewiki
 # display verbose messages?
 #verbose: 1
 # log to syslog?
-syslog: 1
+syslog: 0
 # create output files named page/index.html?
 usedirs: 0
 # use '!'-prefixed preprocessor directives?
